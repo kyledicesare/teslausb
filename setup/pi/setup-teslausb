@@ -324,7 +324,7 @@ function create_usb_drive_backing_files () {
 
   setup_progress "Creating backing disk files."
   copy_script setup/pi/create-backingfiles.sh /tmp
-  /tmp/create-backingfiles.sh "$CAM_SIZE" "$MUSIC_SIZE" "$LIGHTSHOW_SIZE" "$BOOMBOX_SIZE" "$BACKINGFILES_MOUNTPOINT" "$USE_EXFAT"
+  /tmp/create-backingfiles.sh "$CAM_SIZE" "$MUSIC_SIZE" "$LIGHTSHOW_SIZE" "$BOOMBOX_SIZE" "$BACKINGFILES_MOUNTPOINT" "$FS_TYPE"
 
   update_backingfiles_fstab_entry $BACKINGFILES_MOUNTPOINT/cam_disk.bin /mnt/cam
   update_backingfiles_fstab_entry $BACKINGFILES_MOUNTPOINT/music_disk.bin /mnt/music
@@ -341,6 +341,13 @@ function create_usb_drive_backing_files () {
     then
       mkdir -p /mnt/cam/TeslaCam
       mkdir -p /mnt/cam/TeslaTrackMode
+      if [ $FS_TYPE = "ext4" ]
+      then
+        chmod 777 /mnt/cam/TeslaCam
+        chmod 777 /mnt/cam/TeslaTrackMode
+        chown 1984:1999 /mnt/cam/TeslaCam
+        chown 1984:1999 /mnt/cam/TeslaTrackMode
+      fi
       touch /mnt/cam/.metadata_never_index
 
       local -r sentrylist_previously_archived=/mutable/sentry_files_archived

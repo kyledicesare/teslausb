@@ -17,9 +17,9 @@ LIGHTSHOW_SIZE="$3"
 BOOMBOX_SIZE="$4"
 # strip trailing slash that shell autocomplete might have added
 BACKINGFILES_MOUNTPOINT="${5/%\//}"
-USE_EXFAT="$6"
+FS_TYPE="$6"
 
-log_progress "cam: $CAM_SIZE, music: $MUSIC_SIZE, lightshow: $LIGHTSHOW_SIZE, boombox: $BOOMBOX_SIZE mountpoint: $BACKINGFILES_MOUNTPOINT, exfat: $USE_EXFAT"
+log_progress "cam: $CAM_SIZE, music: $MUSIC_SIZE, lightshow: $LIGHTSHOW_SIZE, boombox: $BOOMBOX_SIZE mountpoint: $BACKINGFILES_MOUNTPOINT, fs type: $FS_TYPE"
 
 function first_partition_offset () {
   local filename="$1"
@@ -87,7 +87,7 @@ function add_drive () {
   local label="$2"
   local size="$3"
   local filename="$4"
-  local useexfat="$5"
+  local fstype="$5"
   local mountpoint=/mnt/"$name"
 
   if image_matches_params "$filename" "$size" &> /dev/null
@@ -105,24 +105,43 @@ function add_drive () {
 
   log_progress "Allocating ${size}K for $filename..."
   truncate --size="$size"K "$filename"
-  if [ "$useexfat" = true  ]
-  then
-    echo "type=7" | sfdisk "$filename" > /dev/null
-  else
-    echo "type=c" | sfdisk "$filename" > /dev/null
-  fi
+  case "$fstype" in
+    exfat)
+      echo "type=7" | sfdisk "$filename" > /dev/null
+      ;;
+    fat32)
+      echo "type=c" | sfdisk "$filename" > /dev/null
+      ;;
+    ext4)
+      echo "type=83" | sfdisk "$filename" > /dev/null
+      ;;
+    *)
+      log_progress "Unsupported filesystem type: $fstype"
+      exit 1
+      ;;
+  esac
 
   local partition_offset
   partition_offset=$(first_partition_offset "$filename")
 
   loopdev=$(losetup_find_show -o "$partition_offset" "$filename")
   log_progress "Creating filesystem with label '$label'"
-  if [ "$useexfat" = true  ]
-  then
-    mkfs.exfat "$loopdev" -L "$label"
-  else
-    mkfs.vfat "$loopdev" -F 32 -n "$label"
-  fi
+  case "$fstype" in
+    exfat)
+      mkfs.exfat "$loopdev" -L "$label"
+      ;;
+    fat32)
+      mkfs.vfat "$loopdev" -F 32 -n "$label"
+      ;;
+    ext4)
+      mkfs.ext4 -L "$label" "$loopdev"
+      ;;
+    *)
+      log_progress "Unsupported filesystem type: $fstype"
+      losetup -d "$loopdev"
+      exit 1
+      ;;
+  esac
   losetup -d "$loopdev"
 
 
@@ -209,10 +228,10 @@ function image_matches_params () {
 # Check if kernel supports ExFAT 
 if ! check_for_exfat_support
 then
-  if [ "$USE_EXFAT" = true ]
+  if [ "$FS_TYPE" = "exfat" ]
   then
     log_progress "kernel does not support ExFAT FS. Reverting to FAT32."
-    USE_EXFAT=false
+    FS_TYPE="fat32"
   fi
 else
   # install exfatprogs if needed
@@ -222,10 +241,10 @@ else
     if ! apt install -y exfatprogs
     then
       log_progress "kernel supports ExFAT, but exfatprogs package does not exist."
-      if [ "$USE_EXFAT" = true ]
+      if [ "$FS_TYPE" = "exfat" ]
       then
         log_progress "Reverting to FAT32"
-        USE_EXFAT=false
+        FS_TYPE="fat32"
       fi
     fi
   fi
@@ -317,16 +336,16 @@ fi
 # shut down everything that might be using any of the drive images
 release_all_images
 
-add_drive "cam" "CAM" "$CAM_DISK_SIZE" "$CAM_DISK_FILE_NAME" "$USE_EXFAT"
+add_drive "cam" "CAM" "$CAM_DISK_SIZE" "$CAM_DISK_FILE_NAME" "$FS_TYPE"
 if [ "$CAM_DISK_SIZE" -eq 0 ]
 then
   rm -rf "$BACKINGFILES_MOUNTPOINT/snapshots" &> /dev/null
 fi
 
-add_drive "music" "MUSIC" "$MUSIC_DISK_SIZE" "$MUSIC_DISK_FILE_NAME" "$USE_EXFAT"
+add_drive "music" "MUSIC" "$MUSIC_DISK_SIZE" "$MUSIC_DISK_FILE_NAME" "$FS_TYPE"
 
-add_drive "lightshow" "LIGHTSHOW" "$LIGHTSHOW_DISK_SIZE" "$LIGHTSHOW_DISK_FILE_NAME" "$USE_EXFAT"
+add_drive "lightshow" "LIGHTSHOW" "$LIGHTSHOW_DISK_SIZE" "$LIGHTSHOW_DISK_FILE_NAME" "$FS_TYPE"
 
-add_drive "boombox" "BOOMBOX" "$BOOMBOX_DISK_SIZE" "$BOOMBOX_DISK_FILE_NAME" "$USE_EXFAT"
+add_drive "boombox" "BOOMBOX" "$BOOMBOX_DISK_SIZE" "$BOOMBOX_DISK_FILE_NAME" "$FS_TYPE"
 
 log_progress "done"

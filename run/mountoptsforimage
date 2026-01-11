@@ -20,6 +20,10 @@ case $fstype in
     echo exfat "umask=000,$offsetopt,$timeopt"
     ;;
 
+  ext4)
+    echo ext4 "$offsetopt"
+    ;;
+
   default)
     echo "$fstype" "$offsetopt,$timeopt"
     ;;

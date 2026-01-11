@@ -131,7 +131,7 @@ function read_setup_variables {
   export BOOMBOX_SIZE=${BOOMBOX_SIZE:-0}
   export LIGHTSHOW_SIZE=${LIGHTSHOW_SIZE:-0}
   export DATA_DRIVE=${DATA_DRIVE:-''}
-  export USE_EXFAT=${USE_EXFAT:-false}
+  export FS_TYPE=${FS_TYPE:-'fat32'}
 }
 
 read_setup_variables

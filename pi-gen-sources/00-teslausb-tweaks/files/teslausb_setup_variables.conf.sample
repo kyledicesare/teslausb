@@ -113,6 +113,7 @@ export CAM_SIZE=40G
 # Using ExFAT is not recommended for the TeslaUSB prebuilt image, as it is
 # based on an older kernel that has no TRIM support for ExFAT.
 # export USE_EXFAT=true
+export FS_TYPE=ext4
 
 # Uncomment to enable a Samba/CIFS server that makes the recordings available
 # as a network share.
